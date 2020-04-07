@@ -1,0 +1,6 @@
+BUFFER="< $PLUMBER_LASTOUTPUT "
+((CURSOR = $#BUFFER + 1))
+
+add-zle-hook-widget -d line-init "$WIDGET"
+unset PLUMBER_LASTOUTPUT
+# vim: syntax=zsh

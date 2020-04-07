@@ -1,0 +1,33 @@
+local ic=$options[interactivecomments]
+emulate -L zsh
+local old_BUFFER post
+if [[ $ic = off ]]; then
+	if [[ ${${(z)BUFFER}[-1]} != '|' ]]; then
+		zle .accept-line
+		return
+	fi
+else
+	if [[ ${${(Z[C])BUFFER}[-1]} != '|' ]]; then
+		zle .accept-line
+		return
+	fi
+	local -a reply line
+	local REPLY REPLY2 nl=$'\n'
+	split-shell-arguments
+	local -i line_i=$reply[(I)$nl]
+	line=("${(@)reply[line_i,-1]}")
+	local -i comment_i=${line[(i)\#*]}
+	if ((comment_i)); then
+		BUFFER=${(j::)reply[1,line_i+comment_i-1]}
+		post=${(j::)reply[line_i+comment_i,-1]}
+	fi
+fi
+
+typeset -g PLUMBER_LASTOUTPUT=$(umask 066; mktemp)
+old_BUFFER=$BUFFER
+
+BUFFER="${BUFFER%\|*}>| $PLUMBER_LASTOUTPUT &${post:+ $post}"
+zle .accept-line
+
+add-zle-hook-widget line-init →plumber-line-init
+# vim: syntax=zsh
