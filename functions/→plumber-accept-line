@@ -1,14 +1,32 @@
 local ic=$options[interactivecomments]
 emulate -L zsh
-local old_BUFFER post
+[[ $CONTEXT = (start|cont) ]] || return
+if [[ -v _ZPLUMBER_ACCEPT ]]; then
+	# finish, actually accept line
+	echo >&$_ZPLUMBER_CTRL_FD
+	exec {_ZPLUMBER_CTRL_FD}>&-
+	unset _ZPLUMBER_CTRL_FD
+	BUFFER="<$ZPLUMBER_FILE <&$_ZPLUMBER_OUT_FD $BUFFER"
+	# TODO: history
+fi
+if [[ -v _ZPLUMBER_CTRL_FD ]]; then
+	# put back $BUFFER on line-init
+	_ZPLUMBER_BUFFER=$BUFFER
+	_ZPLUMBER_CURSOR=$CURSOR
+	add-zle-hook-widget line-init →plumber-line-init
+	BUFFER="<$ZPLUMBER_FILE $BUFFER"
+	# TODO: history
+	return
+	fi
+fi
+
+# first
 if [[ $ic = off ]]; then
 	if [[ ${${(z)BUFFER}[-1]} != '|' ]]; then
-		zle .accept-line
 		return
 	fi
 else
 	if [[ ${${(Z[C])BUFFER}[-1]} != '|' ]]; then
-		zle .accept-line
 		return
 	fi
 	local -a reply line
@@ -17,17 +35,36 @@ else
 	local -i line_i=$reply[(I)$nl]
 	line=("${(@)reply[line_i,-1]}")
 	local -i comment_i=${line[(i)\#*]}
+	local new_BUFFER
 	if ((comment_i)); then
-		BUFFER=${(j::)reply[1,line_i+comment_i-1]}
-		post=${(j::)reply[line_i+comment_i,-1]}
+		new_BUFFER=${(j::)reply[1,line_i+comment_i-1]}
+	else
+		new_BUFFER=$BUFFER
 	fi
 fi
+local -a pipes=($(mktemp -u){1,2,3})
+mkfifo $pipes || return 3
+exec {_ZPLUMBER_IN_FD}   <> $pipes[1]
+exec {_ZPLUMBER_OUT_FD}  <> $pipes[2]
+exec {_ZPLUMBER_CTRL_FD} <> $pipes[3]
+rm $pipes || return 3
 
-typeset -g PLUMBER_LASTOUTPUT=$(umask 066; mktemp)
-old_BUFFER=$BUFFER
+ZPLUMBER_FILE=$(umask 066; mktemp)
+(
+	cat >| $ZPLUMBER_FILE &
+	pid=$!
+	zselect -r $_ZPLUMBER_CTRL_FD
+	exec {_ZPLUMBER_CTRL_FD}<&-
+	kill $pid
+	trap 'exec {_ZPLUMBER_OUT_FD}>&-' INT EXIT
+	cat >&$_ZPLUMBER_OUT_FD
+) <&$_ZPLUMBER_IN_FD &
 
-BUFFER="${BUFFER%\|*}>| $PLUMBER_LASTOUTPUT &${post:+ $post}"
-zle .accept-line
+# Saved for history
+_ZPLUMBER_START_BUFFER=$BUFFER
 
-add-zle-hook-widget line-init →plumber-line-init
+BUFFER="{ ${BUFFER%\|*}>&$_ZPLUMBER_IN_FD; exec $_ZPLUMBER_IN_FD>&- }&"
+unset _ZPLUMBER_IN_FD
+# TODO: history
+
 # vim: syntax=zsh
