@@ -1,16 +1,17 @@
 fpath+=("${0:h}/functions")
-autoload -Uz →plumber-line-finish →plumber-accept →plumber-line-init add-zle-hook-widget
-
+autoload -Uz →plumber-line-finish →plumber-accept →plumber-line-init \
+	add-zle-hook-widget split-shell-arguments
+zmodload zsh/zselect
 
 add-zle-hook-widget line-finish →plumber-line-finish
-local w
-for w in accept{-line,-and-hold,-and-infer-next-history,-line-and-down-history}; do
-	zle -N $w →plumber-accept
-done
+zle -N →plumber-accept
 
 local m
-for m in viins vicmd emacs; do
+for m (-finish -test '')
+	zle -N →plumber-line-init{$m,}
+
+for m in viins vicmd visual emacs; do
 	# ALT+ENTER
-	bindkey '^[^M' →plumber-accept-line
-	bindkey '^[^J' →plumber-accept-line
+	bindkey -M $m '^[^M' →plumber-accept-line
+	bindkey -M $m '^[^J' →plumber-accept-line
 done

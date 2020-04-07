@@ -1,70 +1,77 @@
 local ic=$options[interactivecomments]
 emulate -L zsh
 [[ $CONTEXT = (start|cont) ]] || return
+
+# Final command
 if [[ -v _ZPLUMBER_ACCEPT ]]; then
+	unset _ZPLUMBER_ACCEPT
 	# finish, actually accept line
 	echo >&$_ZPLUMBER_CTRL_FD
 	exec {_ZPLUMBER_CTRL_FD}>&-
 	unset _ZPLUMBER_CTRL_FD
 	BUFFER="<$ZPLUMBER_FILE <&$_ZPLUMBER_OUT_FD $BUFFER"
+	add-zle-hook-widget line-init →plumber-line-init-finish
 	# TODO: history
 fi
+
+# Test command
 if [[ -v _ZPLUMBER_CTRL_FD ]]; then
 	# put back $BUFFER on line-init
 	_ZPLUMBER_BUFFER=$BUFFER
 	_ZPLUMBER_CURSOR=$CURSOR
-	add-zle-hook-widget line-init →plumber-line-init
+	add-zle-hook-widget line-init →plumber-line-init-test
 	BUFFER="<$ZPLUMBER_FILE $BUFFER"
 	# TODO: history
 	return
-	fi
 fi
 
-# first
+# No command running
 if [[ $ic = off ]]; then
-	if [[ ${${(z)BUFFER}[-1]} != '|' ]]; then
-		return
-	fi
+	# Test for trailing '|'
+	[[ ${${(z)BUFFER}[-1]} = '|' ]] || return
+
 else
-	if [[ ${${(Z[C])BUFFER}[-1]} != '|' ]]; then
-		return
-	fi
+	# Test for trailing '|' after removing comments
+	[[ ${${(Z[C])BUFFER}[-1]} = '|' ]] || return
+
 	local -a reply line
 	local REPLY REPLY2 nl=$'\n'
 	split-shell-arguments
 	local -i line_i=$reply[(I)$nl]
-	line=("${(@)reply[line_i,-1]}")
-	local -i comment_i=${line[(i)\#*]}
+	line=("${(@)reply[line_i,-1]}")     # last line
+	local -i comment_i=${line[(i)\#*]}  # first comment
 	local new_BUFFER
 	if ((comment_i)); then
 		new_BUFFER=${(j::)reply[1,line_i+comment_i-1]}
+		# if we have a comment, "$FIRST | #comment $'\n'$REST"
+		BUFFER+=$nl
 	else
 		new_BUFFER=$BUFFER
 	fi
 fi
+
+# prep fds
 local -a pipes=($(mktemp -u){1,2,3})
 mkfifo $pipes || return 3
-exec {_ZPLUMBER_IN_FD}   <> $pipes[1]
-exec {_ZPLUMBER_OUT_FD}  <> $pipes[2]
-exec {_ZPLUMBER_CTRL_FD} <> $pipes[3]
-rm $pipes || return 3
+exec {_ZPLUMBER_IN_FD}<> $pipes[1]
+exec {_ZPLUMBER_OUT_FD}<> $pipes[2]
+exec {_ZPLUMBER_CTRL_FD}<> $pipes[3]
+rm $pipes
 
 ZPLUMBER_FILE=$(umask 066; mktemp)
 (
 	cat >| $ZPLUMBER_FILE &
 	pid=$!
 	zselect -r $_ZPLUMBER_CTRL_FD
-	exec {_ZPLUMBER_CTRL_FD}<&-
 	kill $pid
-	trap 'exec {_ZPLUMBER_OUT_FD}>&-' INT EXIT
 	cat >&$_ZPLUMBER_OUT_FD
 ) <&$_ZPLUMBER_IN_FD &
 
 # Saved for history
-_ZPLUMBER_START_BUFFER=$BUFFER
+typeset -g _ZPLUMBER_START_BUFFER=$BUFFER
 
-BUFFER="{ ${BUFFER%\|*}>&$_ZPLUMBER_IN_FD; exec $_ZPLUMBER_IN_FD>&- }&"
-unset _ZPLUMBER_IN_FD
+BUFFER="${BUFFER%\|*}>&$_ZPLUMBER_IN_FD &"
+add-zle-hook-widget line-init →plumber-line-init
 # TODO: history
 
 # vim: syntax=zsh

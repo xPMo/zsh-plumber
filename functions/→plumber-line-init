@@ -1,5 +1,19 @@
-BUFFER=$_ZPLUMBER_BUFFER
-CURSOR=$_ZPLUMBER_CURSOR
-unset _ZPLUMBER_BUFFER _ZPLUMBER_CURSOR
+case $WIDGET in
+→plumber-line-init-finish)
+	
+;;
+→plumber-line-init-test)
+	# Test command, reset to saved
+	BUFFER=$_ZPLUMBER_BUFFER
+	CURSOR=$_ZPLUMBER_CURSOR
+	unset _ZPLUMBER_BUFFER _ZPLUMBER_CURSOR
+;;
+→plumber-line-init)
+	# Initial command, save PID
+	typeset -g _ZPLUMBER_START_PID=$!
+	_ZPLUMBER_IN_FD>&-
+;;
+esac
+
 add-zle-hook-widget -d line-init "$WIDGET"
 # vim: syntax=zsh

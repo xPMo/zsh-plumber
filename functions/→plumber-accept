@@ -1,5 +1,5 @@
 typeset -g _ZPLUMBER_ACCEPT
-zle ${WIDGET#*plumber}
+zle accept-line
 unset _ZPLUMBER_BUFFER _ZPLUMBER_CURSOR
-add-zle-hook-widget line-init "${(M)WIDGET#*plumber}-line-init"
+add-zle-hook-widget line-init →plumber-line-init
 # vim: syntax=zsh
