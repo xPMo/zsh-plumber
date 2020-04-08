@@ -8,9 +8,13 @@ if [[ -v _ZPLUMBER_ACCEPT ]]; then
 	echo >&$_ZPLUMBER_CTRL_FD
 	exec {_ZPLUMBER_CTRL_FD}>&-
 	unset _ZPLUMBER_CTRL_FD
-	BUFFER="<$ZPLUMBER_FILE <&$_ZPLUMBER_OUT_FD $BUFFER"
+	_ZPLUMBER_FINISH_BUFFER=$BUFFER
+	BUFFER="<$_ZPLUMBER_FILE <&$_ZPLUMBER_OUT_FD $BUFFER"
 	add-zle-hook-widget line-init →plumber-line-init-finish
 	# TODO: history
+	
+	# currently, chained sessions are not supported
+	return
 fi
 
 # Test command
@@ -19,7 +23,7 @@ if [[ -v _ZPLUMBER_CTRL_FD ]]; then
 	_ZPLUMBER_BUFFER=$BUFFER
 	_ZPLUMBER_CURSOR=$CURSOR
 	add-zle-hook-widget line-init →plumber-line-init-test
-	BUFFER="<$ZPLUMBER_FILE $BUFFER"
+	BUFFER="<$_ZPLUMBER_FILE $BUFFER"
 	# TODO: history
 	return
 fi
@@ -50,27 +54,28 @@ else
 fi
 
 # prep fds
-local -a pipes=($(mktemp -u){1,2,3})
+local -a pipes=($(mktemp -u){1,2})
 mkfifo $pipes || return 3
-exec {_ZPLUMBER_IN_FD}<> $pipes[1]
-exec {_ZPLUMBER_OUT_FD}<> $pipes[2]
-exec {_ZPLUMBER_CTRL_FD}<> $pipes[3]
+exec {_ZPLUMBER_OUT_FD}<> $pipes[1]
+exec {_ZPLUMBER_CTRL_FD}<> $pipes[2]
 rm $pipes
 
 ZPLUMBER_FILE=$(umask 066; mktemp)
-(
-	cat >| $ZPLUMBER_FILE &
-	pid=$!
-	zselect -r $_ZPLUMBER_CTRL_FD
-	kill $pid
-	cat >&$_ZPLUMBER_OUT_FD
-) <&$_ZPLUMBER_IN_FD &
 
 # Saved for history
 typeset -g _ZPLUMBER_START_BUFFER=$BUFFER
 
-BUFFER="${BUFFER%\|*}>&$_ZPLUMBER_IN_FD &"
+# needs to be outside of 'emulate -L zsh'
+# for user settings like rcquotes, extendedglob, etc.
+# to have an effect in $BUFFER
+# in case of (global |)aliases, quote EVERYTHING
+eval "${BUFFER%\|*} > >(
+	'command' 'cat' >| '$_ZPLUMBER_FILE' & 'builtin' 'typeset' 'pid='\$!
+	'builtin' 'read' '-k1' '-u' '$_ZPLUMBER_CTRL_FD'; 'builtin' 'kill' \$pid
+	'command' 'cat' >&$_ZPLUMBER_OUT_FD
+) & _ZPLUMBER_START_PID=\$!"
 add-zle-hook-widget line-init →plumber-line-init
+BUFFER=
 # TODO: history
 
 # vim: syntax=zsh
