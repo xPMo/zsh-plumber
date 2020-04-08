@@ -12,6 +12,6 @@ for m (-finish -test '')
 
 for m in viins vicmd visual emacs; do
 	# ALT+ENTER
-	bindkey -M $m '^[^M' →plumber-accept-line
-	bindkey -M $m '^[^J' →plumber-accept-line
+	bindkey -M $m '^[^M' →plumber-accept
+	bindkey -M $m '^[^J' →plumber-accept
 done

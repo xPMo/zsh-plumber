@@ -1,5 +1,4 @@
 local ic=$options[interactivecomments]
-emulate -L zsh
 [[ $CONTEXT = (start|cont) ]] || return
 
 # Final command
