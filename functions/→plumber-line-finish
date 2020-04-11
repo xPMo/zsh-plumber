@@ -1,4 +1,6 @@
 local ic=$options[interactivecomments]
+emulate -L zsh
+setopt noaliases
 [[ $CONTEXT = (start|cont) ]] || return
 
 # Final command
@@ -8,10 +10,10 @@ if [[ -v _ZPLUMBER_ACCEPT ]]; then
 	echo >&$_ZPLUMBER_CTRL_FD
 	exec {_ZPLUMBER_CTRL_FD}>&-
 	unset _ZPLUMBER_CTRL_FD
-	_ZPLUMBER_FINISH_BUFFER=$BUFFER
+	_ZPLUMBER_BUFFER=$BUFFER
 	BUFFER="<$_ZPLUMBER_FILE <&$_ZPLUMBER_OUT_FD $BUFFER"
 	add-zle-hook-widget line-init →plumber-line-init-finish
-	# TODO: history
+	fc -p
 	
 	# currently, chained sessions are not supported
 	return
@@ -24,7 +26,7 @@ if [[ -v _ZPLUMBER_CTRL_FD ]]; then
 	_ZPLUMBER_CURSOR=$CURSOR
 	add-zle-hook-widget line-init →plumber-line-init-test
 	BUFFER="<$_ZPLUMBER_FILE $BUFFER"
-	# TODO: history
+	fc -p
 	return
 fi
 
@@ -51,6 +53,8 @@ else
 	else
 		new_BUFFER=$BUFFER
 	fi
+	zle -R
+	zle reset-prompt
 fi
 
 # prep fds
@@ -60,7 +64,7 @@ exec {_ZPLUMBER_OUT_FD}<> $pipes[1]
 exec {_ZPLUMBER_CTRL_FD}<> $pipes[2]
 rm $pipes
 
-ZPLUMBER_FILE=$(umask 066; mktemp)
+_ZPLUMBER_FILE=$(umask 066; mktemp)
 
 # Saved for history
 typeset -g _ZPLUMBER_START_BUFFER=$BUFFER
@@ -69,13 +73,11 @@ typeset -g _ZPLUMBER_START_BUFFER=$BUFFER
 # for user settings like rcquotes, extendedglob, etc.
 # to have an effect in $BUFFER
 # in case of (global |)aliases, quote EVERYTHING
-eval "${BUFFER%\|*} > >(
-	'command' 'cat' >| '$_ZPLUMBER_FILE' & 'builtin' 'typeset' 'pid='\$!
-	'builtin' 'read' '-k1' '-u' '$_ZPLUMBER_CTRL_FD'; 'builtin' 'kill' \$pid
-	'command' 'cat' >&$_ZPLUMBER_OUT_FD
-) & _ZPLUMBER_START_PID=\$!"
+BUFFER="${BUFFER%\|*} > >(→plumber-relay) & _ZPLUMBER_START_PID=\$!"
+zle -R
+zle reset-prompt
 add-zle-hook-widget line-init →plumber-line-init
-BUFFER=
 # TODO: history
+fc -p
 
 # vim: syntax=zsh
