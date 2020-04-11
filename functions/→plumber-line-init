@@ -1,18 +1,22 @@
 emulate -L zsh
 case $WIDGET in
-→plumber-line-init-finish)
-	kill "$_ZPLUMBER_START_PID"
-	rm "$_ZPLUMBER_FILE"
-	print -rs "$_ZPLUMBER_START_BUFFER | $_ZPLUMBER_FINISH_BUFFER"
-	unset _ZPLUMBER_START_PID _ZPLUMBER_OUT_FD _ZPLUMBER_{START,FINISH}_BUFFER
-;;
-→plumber-line-init-test)
-	# Test command, reset to saved
-	BUFFER=$_ZPLUMBER_BUFFER
-	CURSOR=$_ZPLUMBER_CURSOR
-	unset _ZPLUMBER_BUFFER _ZPLUMBER_CURSOR
-;;
-→plumber-line-init) ;;
+	→plumber-line-init-finish)
+		kill "$_ZPLUMBER_START_PID"
+		rm "$_ZPLUMBER_FILE"
+		fc -P # restore history list
+		print -rs "$_ZPLUMBER_START_BUFFER $_ZPLUMBER_BUFFER"
+		unset _ZPLUMBER_START_PID _ZPLUMBER_OUT_FD _ZPLUMBER_{START,FINISH}_BUFFER
+	;;
+	→plumber-line-init-test)
+		fc -P # restore history list
+		print -rs "$_ZPLUMBER_BUFFER"
+		BUFFER=$_ZPLUMBER_BUFFER
+		CURSOR=$_ZPLUMBER_CURSOR
+		unset _ZPLUMBER_BUFFER _ZPLUMBER_CURSOR
+	;;
+	→plumber-line-init)
+		fc -P # restore history list
+	;;
 esac
 
 add-zle-hook-widget -d line-init "$WIDGET"

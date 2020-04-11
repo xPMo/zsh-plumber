@@ -1,0 +1,10 @@
+emulate -L zsh
+setopt noaliases
+
+cat >| $_ZPLUMBER_FILE &
+local REPLY pid=$!
+read -k1 -u $_ZPLUMBER_CTRL_FD
+kill $pid
+cat >&$_ZPLUMBER_OUT_FD
+
+# vim: syntax=zsh
