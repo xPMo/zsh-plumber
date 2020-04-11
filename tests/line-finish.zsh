@@ -30,6 +30,8 @@ vars=(
 	PLUMBER_LASTOUTPUT
 )
 
+relay='> >(→plumber-relay) &'
+
 never_plumb=(
 	'basic cmd'
 	'basic | pipeline'
@@ -37,22 +39,22 @@ never_plumb=(
 )
 
 always_plumb=(
-	'ends with |'  'ends with >| :file: &'
-	'pipe|space| ' 'pipe|space>| :file: &'
-	'escaped \\|'  'escaped \\>| :file: &'
+	'ends with |'  "ends with $relay"
+	'pipe|space| ' "pipe|space$relay"
+	'escaped \\|'  "escaped \\$relay"
 )
 
 ic_plumb=(
-	'ends | #foo' 'ends >| :file: & #foo'
-	'a | # b |'   'a >| :file: & # b |'
+	'ends | #foo' "ends $relay #foo"
+	'a | # b |'   "a $relay # b |"
 )
 ic_noplumb=(
 	'ends #foo |'
 	'a | b # |'
 )
 noic_plumb=(
-	'ends #foo |' 'ends #foo >| :file: &'
-	'a | # b |'   'a | # b >| :file: &'
+	'ends #foo |' "ends #foo $relay"
+	'a | # b |'   "a | # b $relay"
 )
 noic_noplumb=(
 	'ends | #foo'
