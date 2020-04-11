@@ -1,10 +1,10 @@
 #!/usr/bin/env zsh
 
 fpath+=(${0:a:h:h}/functions)
-autoload -Uz →plumber-accept-line split-shell-arguments
+autoload -Uz →plumber-line-finish split-shell-arguments
 integer failed=0
 
-add-zle-hook-widget(){ : }
+add-zle-hook-widget(){ hook=$1 }
 
 mktemp(){ echo :file: }
 
